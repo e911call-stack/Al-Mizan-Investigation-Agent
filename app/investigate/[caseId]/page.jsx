@@ -245,6 +245,13 @@ export default function CasePage({ params }) {
             <button className={reviewTab === 'drafts' ? 'active' : ''} onClick={() => setReviewTab('drafts')}>{lang === 'en' ? 'Drafts' : 'المسودات'}</button>
             <button className={reviewTab === 'routing' ? 'active' : ''} onClick={() => setReviewTab('routing')}>{lang === 'en' ? 'Court & fees' : 'المحكمة والرسوم'}</button>
             <button className={reviewTab === 'audit' ? 'active' : ''} onClick={() => setReviewTab('audit')}>{lang === 'en' ? 'Audit trail' : 'سجل التدقيق'}</button>
+            <a
+              href={`/api/case/${caseId}/report-pdf?lang=${lang}`}
+              className="btn btn-secondary"
+              style={{ marginInlineStart: 'auto', alignSelf: 'center', textDecoration: 'none' }}
+            >
+              {lang === 'en' ? 'Download PDF Report' : 'تحميل تقرير PDF'}
+            </a>
           </div>
 
           {reverifying && (

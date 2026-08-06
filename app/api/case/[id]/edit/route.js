@@ -23,11 +23,13 @@ export async function POST(request, { params }) {
     extracted.parties[0].name = value;
   }
 
+  const research = caseRow.research || {};
+
   let factResult, citeResult;
   try {
     [factResult, citeResult] = await Promise.all([
       runFactConsistency(extracted),
-      runCitationVerification((caseRow.research && caseRow.research.findings) || [])
+      runCitationVerification(research.findings || [], research.corpusSource, supabase, caseRow.jurisdiction_signal)
     ]);
   } catch (e) {
     return Response.json({ error: e.message }, { status: e.status || 500 });

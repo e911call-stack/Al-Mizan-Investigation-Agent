@@ -15,6 +15,7 @@ const EXTRACT_TOOL = {
         items: { type: 'object', properties: { role: { type: 'string' }, name: { type: 'string' } }, required: ['role', 'name'] }
       },
       claimType: { type: 'string' },
+      reliefSought: { type: 'string', description: 'What the claimant is asking for, in one sentence, if stated in the text (e.g. damages of a stated amount, specific performance, rescission). Empty string if not stated.' },
       claimValueEstimate: { type: 'number' },
       claimValueCurrency: { type: 'string' },
       keyDates: {

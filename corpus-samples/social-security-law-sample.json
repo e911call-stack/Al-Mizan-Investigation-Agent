@@ -1,0 +1,35 @@
+[
+  {
+    "law_name_ar": "قانون الضمان الاجتماعي الأردني",
+    "law_name_en": "Jordan Social Security Law",
+    "article_number": "1",
+    "citation": "قانون الضمان الاجتماعي الأردني — المادة 1",
+    "text_ar": "يسمى هذا القانون (قانون الضمان الاجتماعي لسنة 2014).",
+    "tier": "extracted-unverified",
+    "source_note": "Extracted from a legal-info website republication (موقع القانون في الأردن), not the Official Gazette directly — pending verification against an authoritative source."
+  },
+  {
+    "law_name_ar": "قانون الضمان الاجتماعي الأردني",
+    "article_number": "2",
+    "citation": "قانون الضمان الاجتماعي الأردني — المادة 2",
+    "chapter": "الفصل الأول: التعاريف ومجال التطبيق",
+    "text_ar": "أ- يكون للكلمات والعبارات التالية حيثما وردت في هذا القانون المعاني المخصصة لها أدناه ما لم تدل القرينة على غير ذلك: رئيس المجلس: وزير العمل. المؤسسة: المؤسسة العامة للضمان الاجتماعي. المجلس: مجلس إدارة المؤسسة. المدير العام: مدير عام المؤسسة. [... full definitions list, ~30 terms ...] المؤمن عليه: الشخص الطبيعي الذي تسري عليه أحكام هذا القانون ذكرًا كان أم أنثى.",
+    "tier": "extracted-unverified",
+    "note": "The website's inserted paragraph beginning 'يهدف الفصل الأول من قانون الضمان الاجتماعي الأردني إلى توضيح...' was removed here — it is editorial commentary, not statutory text, and does not belong in the corpus."
+  },
+  {
+    "law_name_ar": "قانون الضمان الاجتماعي الأردني",
+    "article_number": "3",
+    "citation": "قانون الضمان الاجتماعي الأردني — المادة 3",
+    "text_ar": "أ- يشمل هذا القانون التأمينات التالية: 1- تأمين إصابات العمل. 2- تأمين الشيخوخة والعجز والوفاة. 3- تأمين الأمومة. 4- تأمين التعطل عن العمل. 5- التأمين الصحي. [... paragraphs ب through هـ ...]",
+    "tier": "extracted-unverified"
+  },
+  {
+    "law_name_ar": "قانون الضمان الاجتماعي الأردني",
+    "article_number": "4",
+    "citation": "قانون الضمان الاجتماعي الأردني — المادة 4",
+    "text_ar": "أ- يخضع لأحكام هذا القانون كل من الفئات المبينة تاليًا ممن أكمل ست عشرة سنة دون أي تمييز بسبب الجنسية... [full text, with the corrupted fragment 'و?لك' corrected to 'وذلك' per the source PDF's evident intent, flagged for verification]",
+    "tier": "extracted-unverified",
+    "extraction_flag": "Contains a garbled character sequence in the source PDF ('و?لك') — corrected here to the evident reading 'وذلك' but not yet confirmed against an authoritative copy."
+  }
+]

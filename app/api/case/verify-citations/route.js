@@ -13,11 +13,12 @@ export async function POST(request) {
   const { data: caseRow, error: fetchError } = await supabase.from('cases').select('*').eq('id', caseId).single();
   if (fetchError || !caseRow) return Response.json({ error: 'Case not found.' }, { status: 404 });
 
-  const claimedFindings = (caseRow.research && caseRow.research.findings) || [];
+  const research = caseRow.research || {};
+  const claimedFindings = research.findings || [];
 
   let result;
   try {
-    result = await runCitationVerification(claimedFindings);
+    result = await runCitationVerification(claimedFindings, research.corpusSource, supabase, caseRow.jurisdiction_signal);
   } catch (e) {
     return Response.json({ error: e.message }, { status: e.status || 500 });
   }

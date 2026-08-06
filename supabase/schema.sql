@@ -39,6 +39,76 @@ create table if not exists audit_log (
 
 create index if not exists audit_log_case_id_idx on audit_log(case_id);
 
+-- ============================================================
+-- REAL LEGAL CORPUS (RAG) — added when moving beyond the stub
+-- corpus toward real, verifiable Jordanian statute data.
+-- ============================================================
+
+-- pgvector powers semantic search over corpus entries. Supabase
+-- projects support this extension out of the box.
+create extension if not exists vector;
+
+create table if not exists legal_corpus (
+  id bigint generated always as identity primary key,
+  jurisdiction text not null,              -- e.g. 'jordan-civil'
+  law_name_ar text,
+  law_name_en text,
+  article_number text,
+  chapter text,
+  citation text not null,                  -- e.g. "قانون الضمان الاجتماعي الأردني — المادة 4"
+  text_ar text not null,
+  text_en text,                            -- optional, if a translation exists
+  tier text not null default 'extracted-unverified',
+    -- 'extracted-unverified': pulled from a source PDF, cleaned, not yet
+    --   spot-checked against an authoritative copy — this is where every
+    --   newly ingested law starts.
+    -- 'corpus-verified': a human has confirmed this entry against an
+    --   authoritative source (Official Gazette or equivalent). Only this
+    --   tier should ever be treated as citeable-grade by Drafting once
+    --   Drafting is real.
+  source_note text,                        -- where this came from, any caveats
+  embedding vector(1024),                  -- voyage-multilingual-2 dimension
+  created_at timestamptz default now()
+);
+
+create index if not exists legal_corpus_embedding_idx
+  on legal_corpus using ivfflat (embedding vector_cosine_ops) with (lists = 100);
+
+alter table legal_corpus enable row level security;
+drop policy if exists "no anon access" on legal_corpus;
+create policy "no anon access" on legal_corpus for all using (false);
+
+-- Vector similarity search, called via supabase.rpc() from the app —
+-- the JS client can't do vector math itself, so this Postgres function
+-- does the actual cosine-distance ranking.
+create or replace function match_legal_corpus(
+  query_embedding vector(1024),
+  match_jurisdiction text,
+  match_count int default 5
+)
+returns table (
+  id bigint,
+  citation text,
+  text_ar text,
+  tier text,
+  source_note text,
+  similarity float
+)
+language sql stable
+as $$
+  select
+    legal_corpus.id,
+    legal_corpus.citation,
+    legal_corpus.text_ar,
+    legal_corpus.tier,
+    legal_corpus.source_note,
+    1 - (legal_corpus.embedding <=> query_embedding) as similarity
+  from legal_corpus
+  where legal_corpus.jurisdiction = match_jurisdiction
+  order by legal_corpus.embedding <=> query_embedding
+  limit match_count;
+$$;
+
 -- This is an internal attorney/office tool, not client- or public-facing —
 -- so there is no anonymous read/write path at all. The server-side service
 -- role key (used by every API route) bypasses RLS by design in Supabase;
