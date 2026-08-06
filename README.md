@@ -21,10 +21,13 @@ React (Next.js App Router) version of the tool, with a real database. Same visua
 
 1. Push this whole folder to a GitHub repo.
 2. Import the repo in Vercel. It auto-detects Next.js — no configuration needed.
-3. Add three environment variables (Project → Settings → Environment Variables):
+3. Add these environment variables (Project → Settings → Environment Variables):
    - `ANTHROPIC_API_KEY`
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
+   - `VOYAGE_API_KEY`
+   - `APP_PASSWORD`
+   - `SESSION_SECRET`
 4. Deploy.
 
 ## Using it
@@ -56,7 +59,7 @@ Research and Citation Verification now check a real, ingested corpus first, and 
 
 **Not handled yet:** PDF upload/parsing on the ingestion page — you'll need to paste text, not upload files, for now. For your scanned-image PDFs specifically, that text doesn't exist yet; those would need a vision-extraction pass before they're pasteable text at all. Also not handled: any actual promotion workflow from `extracted-unverified` to `corpus-verified` — right now that would mean manually updating the `tier` column in Supabase after checking an entry.
 
-
+## PDF Case Report
 
 `GET /api/case/[id]/report-pdf?lang=en|ar` generates a bilingual, RTL-aware PDF via Puppeteer + `@sparticuz/chromium` — a real headless-browser render, not a JS PDF library, which is what makes correct Arabic letter-shaping possible. The "Download PDF Report" button on the Case Package screen links straight to this endpoint using whichever language the UI is currently in.
 
@@ -68,9 +71,23 @@ Sections, in the order requested: header (case ID, generated date, language, "At
 
 **Fonts load from Google Fonts at render time** inside the headless browser (network egress from the Vercel function). This is simple but adds a little latency and a small external dependency; embedding the fonts as base64 is a reasonable future optimization if this becomes a bottleneck.
 
+## Login / Auth
+
+Every page under `/investigate` and `/admin`, and every `/api/case/*` and `/api/corpus/*` endpoint, now requires logging in first. The landing page (`/`) stays public — that's just the explainer page, no case data there.
+
+**How it works, in plain terms:** one shared password for the whole team (not individual logins yet — see limitation below). Log in once at `/login`, and you stay logged in for 7 days via a secure cookie. No password, no access — including to the API endpoints directly, not just the pages.
+
+**Required setup:**
+- `APP_PASSWORD` — whatever password your team will use to log in. Pick something real, not a placeholder.
+- `SESSION_SECRET` — a long random string (30+ characters) used to cryptographically sign login sessions so they can't be faked. Not something anyone types — generate it once (a password manager's "generate password" feature works fine) and never share it. If it's ever changed, everyone gets logged out and has to log back in — that's normal, not a bug.
+
+Both go in Vercel → Project → Settings → Environment Variables (already listed above), then redeploy.
+
+**Known limitation:** shared password for the whole team, not individual attorney accounts — good enough to stop random internet traffic and protect your API keys/corpus, not a real access-control system yet. If you need to know *which* attorney did *what* beyond what the audit trail already logs per case, that's a bigger upgrade (individual accounts) for later.
+
 ## Known limitations (unchanged or new)
 
-- No auth yet — anyone with the URL can create cases, use your API keys, download any case's PDF report, and now reach `/admin/ingest-law` to add corpus entries. This is the most urgent item to fix.
+- Auth is now a shared team password, not individual attorney accounts or per-case ownership checks — good enough to keep the app off the open internet, not a full access-control system.
 - No real PDF/document upload — Intake still reads typed/pasted text, and so does the corpus ingestion page.
 - Drafting and Assembler remain mocked.
 - Fact-Consistency still checks Intake's raw output, not a real draft's claims, since Drafting isn't built.
@@ -81,4 +98,4 @@ Sections, in the order requested: header (case ID, generated date, language, "At
 
 ## Next step
 
-Auth is overdue now that this has a real database, a public URL, a downloadable report endpoint, AND an admin page that writes to the corpus. That combination is the strongest argument yet for making auth the very next thing, before ingesting the remaining 13 laws through an open URL.
+With the app now behind a password, the next reasonable steps are: finish ingesting the 13 laws through `/admin/ingest-law`, and separately, start planning individual attorney accounts (rather than one shared password) once more than a couple of people are using this day to day.

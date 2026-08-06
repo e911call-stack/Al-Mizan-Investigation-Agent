@@ -1,10 +1,8 @@
 'use client';
 import { useState } from 'react';
 
-// No auth on this page yet — same gap as the rest of the app (see
-// README). This is an internal admin tool; do not link to it from
-// anywhere attorney-facing, and treat the URL as sensitive until real
-// auth exists.
+// Protected by the app-wide password gate (see middleware.js) — not a
+// per-user permission system yet, but no longer wide open.
 export default function IngestLawPage() {
   const [jurisdiction, setJurisdiction] = useState('jordan-civil');
   const [lawNameAr, setLawNameAr] = useState('');

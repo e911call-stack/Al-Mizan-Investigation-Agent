@@ -18,9 +18,10 @@ export async function GET(request, { params }) {
   let supabase;
   try { supabase = getSupabase(); } catch (e) { return Response.json({ error: e.message }, { status: 500 }); }
 
-  // NOTE: no auth system exists yet (see README known limitations) — this
-  // fetches by id only. Once auth is added, this is where a real
-  // ownership/firm check belongs, before the case row is ever read.
+  // NOTE: middleware.js requires a valid session to reach this route at
+  // all, but there's still no per-case ownership check (any logged-in
+  // user can fetch any case's report). Fine for a small shared-password
+  // team now; revisit once individual accounts exist.
   const { data: caseRow, error } = await supabase.from('cases').select('*').eq('id', caseId).single();
   if (error || !caseRow) {
     return Response.json({ error: 'Case not found.' }, { status: 404 });
