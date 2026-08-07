@@ -1,6 +1,6 @@
 import { getSupabase, logAudit } from '../../../../lib/supabase';
 import { getOptionalUser, actorFromUser } from '../../../../lib/supabase-server';
-import { callClaudeTool } from '../../../../lib/claude';
+import { callAgentTool } from '../../../../lib/llm';
 import { embedText } from '../../../../lib/embeddings';
 import { STUB_CORPUS, STUB_NOTICE } from '../../../../lib/stub-data';
 
@@ -83,7 +83,7 @@ async function stubCorpusFallback(jurisdictionSignal, claimType) {
   }
 
   const corpusListText = relevantCorpus.map(c => `- id: ${c.id} | ${c.citation} | ${c.summary}`).join('\n');
-  const selection = await callClaudeTool({
+  const selection = await callAgentTool({
     system: stubSystemPrompt(corpusListText),
     userContent: `Claim type: ${claimType}\nJurisdiction: ${jurisdictionSignal}`,
     tool: SELECT_TOOL

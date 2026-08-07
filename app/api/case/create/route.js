@@ -1,6 +1,6 @@
 import { getSupabase, logAudit } from '../../../../lib/supabase';
 import { getOptionalUser, actorFromUser } from '../../../../lib/supabase-server';
-import { callClaudeTool } from '../../../../lib/claude';
+import { callAgentTool } from '../../../../lib/llm';
 
 const MAX_CASE_TEXT_CHARS = 20000;
 
@@ -77,7 +77,7 @@ export async function POST(request) {
 
   let extracted;
   try {
-    extracted = await callClaudeTool({
+    extracted = await callAgentTool({
       system: SYSTEM_PROMPT,
       userContent: inputText,
       tool: EXTRACT_TOOL,

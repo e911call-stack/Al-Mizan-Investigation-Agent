@@ -27,8 +27,8 @@ React (Next.js App Router) version of the tool, with a real database. Same visua
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
-   - `ANTHROPIC_API_KEY`
-   - `VOYAGE_API_KEY`
+   - `ANTHROPIC_API_KEY` *(or the Gemini/Cohere/HF keys below — see "Provider / free setup")*
+   - `VOYAGE_API_KEY` *(or the alternative embedding keys below — same section)*
 4. Deploy.
 
 ## Using it
@@ -48,7 +48,7 @@ React (Next.js App Router) version of the tool, with a real database. Same visua
 
 Research and Citation Verification now check a real, ingested corpus first, and only fall back to the old stub corpus for jurisdictions/laws you haven't ingested yet.
 
-**How to add a law:** go to `/admin/ingest-law` (no auth yet — treat this URL as sensitive, see limitations below), paste the law's text, name it, and submit. Behind the scenes: Claude splits the raw text into individual articles and strips out anything that isn't statutory text (chapter summaries, website bylines, watermarks — exactly the kind of inserted commentary found in the sample law you shared), each article gets embedded via Voyage AI (`voyage-multilingual-2`, chosen for real Arabic support), and stored in a new `legal_corpus` table in Supabase.
+**How to add a law:** go to `/admin/ingest-law` (authenticated but no dedicated admin role yet), paste the law's text, name it, and submit. Behind the scenes: the LLM splits the raw text into individual articles and strips out anything that isn't statutory text (chapter summaries, website bylines, watermarks), each article gets embedded, and stored in a `legal_corpus` table in Supabase.
 
 **Every ingested article starts at `extracted-unverified` tier — never `corpus-verified`.** That promotion is a deliberate decision this system does not make automatically; a human needs to check an entry against an authoritative source (ideally the Official Gazette, not a secondary republication) before it should be trusted at citation-grade. The schema supports the tier field for exactly this, but nothing currently sets it to `corpus-verified` — that's intentionally a manual, future step.
 
@@ -56,7 +56,16 @@ Research and Citation Verification now check a real, ingested corpus first, and 
 
 **For your 13 laws:** paste each one in through `/admin/ingest-law`. For long laws (the sample you shared has 110 articles), paste in chapter-sized chunks under the same law name rather than the whole thing in one call — there's a real execution-time and output-size ceiling on a single ingestion request (see `maxDuration` in the route, same Vercel Pro caveat as the PDF report).
 
-**Required setup:** add `VOYAGE_API_KEY` alongside your other environment variables, and run the updated `supabase/schema.sql` (it now includes the `vector` extension, the `legal_corpus` table, and the `match_legal_corpus` function) — if you already ran the original schema, just run the new block; the `create table if not exists` / `create or replace function` statements are safe to re-run.
+**Required setup:** set the **LLM** and **embedding** providers (see below) and run the updated `supabase/schema.sql` (it includes the `vector` extension, the `legal_corpus` table, and the `match_legal_corpus` function) — the `create table if not exists` / `create or replace function` statements are safe to re-run.
+
+## Cheap / free provider setup
+
+Every agent step and the corpus RAG call a provider, so you can run the whole app on free tiers:
+
+- **LLM** (`LLM_PROVIDER`): `anthropic` (default, needs `ANTHROPIC_API_KEY`) or `gemini` (free tier, needs `GEMINI_API_KEY` from aistudio.google.com; optional `GEMINI_MODEL`, default `gemini-2.5-flash`). Gemini uses Gemini's forced function-calling so structured output behaves the same as Claude's.
+- **Embeddings** (`EMBED_PROVIDER`): `voyage` (default, needs `VOYAGE_API_KEY`), `cohere` (free tier, `COHERE_API_KEY` from dashboard.cohere.com), or `huggingface` (free, `HUGGINGFACE_API_KEY` from huggingface.co/settings/tokens, model `BAAI/bge-m3`). **All three return 1024-dim vectors**, identical to the `embedding vector(1024)` column, so switching providers requires no schema change.
+
+Example free setup in Vercel: `LLM_PROVIDER=gemini`, `EMBED_PROVIDER=huggingface`, and the matching keys.
 
 **Not handled yet:** PDF upload/parsing on the ingestion page — you'll need to paste text, not upload files, for now. For your scanned-image PDFs specifically, that text doesn't exist yet; those would need a vision-extraction pass before they're pasteable text at all. Also not handled: any actual promotion workflow from `extracted-unverified` to `corpus-verified` — right now that would mean manually updating the `tier` column in Supabase after checking an entry.
 
