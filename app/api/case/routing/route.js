@@ -24,18 +24,24 @@ export async function POST(request) {
     result = { status: 'no_table_for_jurisdiction', message: `No stub reference table available yet for jurisdiction "${jurisdictionSignal || 'unspecified'}".` };
   } else if (claimValue === null || claimValue === undefined) {
     result = { status: 'insufficient_data', message: 'No claim value was extracted by Intake — Court-Routing needs a claim value to look up the correct tier.' };
+  } else if (typeof claimValue !== 'number' || !Number.isFinite(claimValue) || claimValue <= 0) {
+    result = { status: 'insufficient_data', message: 'The claim value extracted by Intake is not a positive number — Court-Routing needs a valid claim value to look up the correct tier.' };
   } else {
     const tier = STUB_FEE_TABLE.tiers.find(t => claimValue <= t.maxValue);
-    result = {
-      status: 'ok',
-      court: tier.court,
-      fee: tier.fee,
-      feeCurrency: tier.feeCurrency,
-      basis: `Claim value ${claimValue} ${caseRow.claim_value_currency || ''} — table lookup`,
-      lastVerifiedDate: STUB_FEE_TABLE.lastVerifiedDate,
-      referenceOwner: STUB_FEE_TABLE.referenceOwner,
-      stubNotice: STUB_NOTICE
-    };
+    if (!tier) {
+      result = { status: 'insufficient_data', message: 'The claim value is outside the range of the reference fee table.' };
+    } else {
+      result = {
+        status: 'ok',
+        court: tier.court,
+        fee: tier.fee,
+        feeCurrency: tier.feeCurrency,
+        basis: `Claim value ${claimValue} ${caseRow.claim_value_currency || ''} — table lookup`,
+        lastVerifiedDate: STUB_FEE_TABLE.lastVerifiedDate,
+        referenceOwner: STUB_FEE_TABLE.referenceOwner,
+        stubNotice: STUB_NOTICE
+      };
+    }
   }
 
   await supabase.from('cases').update({ routing: result, updated_at: new Date().toISOString() }).eq('id', caseId);

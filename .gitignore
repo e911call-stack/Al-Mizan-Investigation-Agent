@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Environment / secrets — never commit these
+.env
+.env.*
+!.env.example
+
+# Supabase / Vercel local
+supabase/.temp/
+
+# Misc
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+*.log

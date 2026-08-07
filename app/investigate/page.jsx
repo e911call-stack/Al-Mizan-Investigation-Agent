@@ -13,6 +13,7 @@ const strings = {
     start: 'Begin investigation', starting: 'Intake Agent reading case…',
     needFacts: 'Add a case narrative first — the Intake Agent needs text to extract from.',
     clarTitle: 'The Intake Agent needs more detail before continuing:',
+    truncated: 'This narrative is over 20,000 characters. The Intake Agent reads only the first 20,000 — trim it to make sure nothing important is lost.',
     failed: 'Could not reach the server — check your connection.'
   },
   ar: {
@@ -23,6 +24,7 @@ const strings = {
     start: 'بدء التحقيق', starting: 'وكيل الإدخال يقرأ القضية…',
     needFacts: 'أضف سرد القضية أولاً — يحتاج وكيل الإدخال إلى نص لاستخراج البيانات منه.',
     clarTitle: 'يحتاج وكيل الإدخال إلى مزيد من التفاصيل قبل المتابعة:',
+    truncated: 'يتجاوز هذا السرد ٢٠,٠٠٠ حرفًا. يقرأ وكيل الإدخال أول ٢٠,٠٠٠ حرفًا فقط — اختصره للتأكد من عدم فقدان أي معلومة مهمة.',
     failed: 'تعذر الوصول إلى الخادم — تحقق من الاتصال.'
   }
 };
@@ -76,6 +78,10 @@ export default function NewCasePage() {
           placeholder={s.placeholder}
           style={{ width: '100%', border: '1px solid var(--paper-line)', background: '#fff', borderRadius: 'var(--radius-s)', padding: '9px 11px', fontSize: 14, fontFamily: 'inherit', resize: 'vertical' }}
         />
+
+        {text.length > 20000 && (
+          <p style={{ color: 'var(--flag)', fontSize: 12.5, marginTop: 8 }}>{s.truncated}</p>
+        )}
 
         {ambiguities && (
           <div style={{ marginTop: 16, background: 'var(--alert-bg)', border: '1px solid var(--alert)', borderRadius: 'var(--radius-m)', padding: '14px 16px' }}>
