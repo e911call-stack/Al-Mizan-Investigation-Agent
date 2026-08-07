@@ -1,4 +1,5 @@
 import { getSupabase, logAudit } from '../../../../lib/supabase';
+import { getOptionalUser, actorFromUser } from '../../../../lib/supabase-server';
 import { STUB_FEE_TABLE, STUB_NOTICE } from '../../../../lib/stub-data';
 
 // No Claude call here, deliberately — per the PRD, court/fee routing must
@@ -10,11 +11,19 @@ export async function POST(request) {
   const caseId = body.caseId;
   if (!caseId) return Response.json({ error: 'caseId is required.' }, { status: 400 });
 
+  const user = await getOptionalUser();
+  if (!user) return Response.json({ error: 'Unauthorized — please log in.' }, { status: 401 });
+  const actor = actorFromUser(user);
+
   let supabase;
   try { supabase = getSupabase(); } catch (e) { return Response.json({ error: e.message }, { status: 500 }); }
 
   const { data: caseRow, error: fetchError } = await supabase.from('cases').select('*').eq('id', caseId).single();
   if (fetchError || !caseRow) return Response.json({ error: 'Case not found.' }, { status: 404 });
+
+  if (caseRow.owner_id && caseRow.owner_id !== user.id) {
+    return Response.json({ error: 'Forbidden — you do not own this case.' }, { status: 403 });
+  }
 
   const jurisdictionSignal = (caseRow.jurisdiction_signal || '').toLowerCase();
   const claimValue = caseRow.claim_value_estimate;
@@ -47,7 +56,7 @@ export async function POST(request) {
   await supabase.from('cases').update({ routing: result, updated_at: new Date().toISOString() }).eq('id', caseId);
   await logAudit(supabase, caseId, 'Court-Routing', result.status === 'ok'
     ? `${result.court}, fee ${result.fee} ${result.feeCurrency} — table lookup.`
-    : result.message);
+    : result.message, actor);
 
   return Response.json(result);
 }

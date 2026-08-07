@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLang } from '../../components/LangContext';
+import { createClient } from '../../lib/supabase-client';
 import { dict } from '../../lib/dict';
 
 export default function InvestigateLayout({ children }) {
@@ -10,8 +11,10 @@ export default function InvestigateLayout({ children }) {
   const router = useRouter();
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    const supabase = createClient();
+    await supabase.auth.signOut();
     router.push('/');
+    router.refresh();
   }
 
   return (

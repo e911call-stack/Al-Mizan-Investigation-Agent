@@ -1,4 +1,5 @@
 import { getSupabase } from '../../../../lib/supabase';
+import { getOptionalUser, actorFromUser } from '../../../../lib/supabase-server';
 import { splitLawIntoArticles } from '../../../../lib/corpus-ingest';
 import { embedText } from '../../../../lib/embeddings';
 
@@ -25,6 +26,10 @@ export async function POST(request) {
   if (!jurisdiction || !rawText) {
     return Response.json({ error: 'jurisdiction and rawText are required.' }, { status: 400 });
   }
+
+  const user = await getOptionalUser();
+  if (!user) return Response.json({ error: 'Unauthorized — please log in.' }, { status: 401 });
+  const actor = actorFromUser(user);
 
   let supabase;
   try { supabase = getSupabase(); } catch (e) { return Response.json({ error: e.message }, { status: 500 }); }
@@ -67,6 +72,17 @@ export async function POST(request) {
       extractionFlag: article.extractionFlag || undefined
     });
   }
+
+  // Record who ingested which law into the audit trail.
+  const okCount = results.filter(r => r.status === 'ok').length;
+  await supabase.from('audit_log').insert({
+    case_id: null,
+    agent: 'Corpus Ingestion',
+    action: `Ingested "${lawNameAr || jurisdiction}" (${okCount}/${split.articles.length} articles).`,
+    actor_id: actor?.id || null,
+    actor_email: actor?.email || null,
+    ts: new Date().toISOString()
+  });
 
   return Response.json({
     articlesFound: split.articles.length,

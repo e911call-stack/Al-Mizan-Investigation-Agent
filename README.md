@@ -14,20 +14,21 @@ React (Next.js App Router) version of the tool, with a real database. Same visua
 
 1. Create a project at supabase.com (free tier is fine to start).
 2. Open the SQL Editor in the Supabase dashboard (web UI, no terminal).
-3. Paste in the contents of `supabase/schema.sql` and run it. This creates the `cases` and `audit_log` tables with row-level security locked to server-only access — this is an internal tool, so there's deliberately no public/anon access path at all.
-4. From Project Settings → API, copy the **Project URL** and the **service_role key** (not the anon key — the service role key is what lets the server write to the DB; it must never be exposed to the browser, which is why it only appears in Vercel's environment variables, never in any file you push to GitHub).
+3. Paste in the contents of `supabase/schema.sql` and run it. This creates the `cases`, `audit_log`, and `legal_corpus` tables, associates `cases` with an `owner_id` (the attorney who created it), and sets row-level security. The service role key writes through RLS by design; the anon key can only touch each user's own rows.
+4. **Enable Google sign-in.** In the Supabase dashboard: Authentication → Sign In / Providers → enable **Google**, and paste your Google OAuth Client ID and Client Secret (create them at Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client IDs). Set the site URL to your app and add `/auth/callback` as an allowed redirect.
+5. From Project Settings → API, copy the **Project URL**, the **anon (public) key**, and the **service_role key**. The service role key is what the server uses to write; it must never be exposed to the browser (it only lives in Vercel environment variables, never in the repo).
 
 ## One-time setup: Vercel
 
 1. Push this whole folder to a GitHub repo.
 2. Import the repo in Vercel. It auto-detects Next.js — no configuration needed.
-3. Add these environment variables (Project → Settings → Environment Variables):
-   - `ANTHROPIC_API_KEY`
+3. Add these environment variables (Project → Settings → Environment Variables), then redeploy:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
+   - `ANTHROPIC_API_KEY`
    - `VOYAGE_API_KEY`
-   - `APP_PASSWORD`
-   - `SESSION_SECRET`
 4. Deploy.
 
 ## Using it
@@ -71,23 +72,24 @@ Sections, in the order requested: header (case ID, generated date, language, "At
 
 **Fonts load from Google Fonts at render time** inside the headless browser (network egress from the Vercel function). This is simple but adds a little latency and a small external dependency; embedding the fonts as base64 is a reasonable future optimization if this becomes a bottleneck.
 
-## Login / Auth
+## Login / Auth (Supabase Auth + Google Workspace)
 
-Every page under `/investigate` and `/admin`, and every `/api/case/*` and `/api/corpus/*` endpoint, now requires logging in first. The landing page (`/`) stays public — that's just the explainer page, no case data there.
+Every page under `/investigate` and `/admin`, and every `/api/case/*` and `/api/corpus/*` endpoint, requires a logged-in attorney. The landing page (`/`) stays public — that's just the explainer page, no case data there.
 
-**How it works, in plain terms:** one shared password for the whole team (not individual logins yet — see limitation below). Log in once at `/login`, and you stay logged in for 7 days via a secure cookie. No password, no access — including to the API endpoints directly, not just the pages.
+**How it works, in plain terms:** attorneys sign in with **Google** (their Workspace account) via Supabase Auth — no shared password, each person has their own identity. Logging in once at `/login` redirects to Google, comes back through `/auth/callback`, and the session cookie is set. The session is validated server-side (middleware) on every protected route and endpoint.
+
+**Per-case ownership.** Every case records the `owner_id` of the attorney who created it. Only that attorney can view, edit, approve, or download the report for a case; the audit trail records which attorney took each action. This is enforced in the API routes (403 otherwise), and mirrored by row-level security so even an anon-key client could only touch its own rows. `audit_log` now carries `actor_id` / `actor_email`.
 
 **Required setup:**
-- `APP_PASSWORD` — whatever password your team will use to log in. Pick something real, not a placeholder.
-- `SESSION_SECRET` — a long random string (30+ characters) used to cryptographically sign login sessions so they can't be faked. Not something anyone types — generate it once (a password manager's "generate password" feature works fine) and never share it. If it's ever changed, everyone gets logged out and has to log back in — that's normal, not a bug.
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (safe for the browser) for the OAuth client.
+- Google OAuth enabled in Supabase Auth (Client ID + Secret from Google Cloud Console) and `/auth/callback` allowlisted under site redirect URLs.
+- Re-run the updated `supabase/schema.sql` so `cases.owner_id` and the `audit_log` actor columns exist.
 
-Both go in Vercel → Project → Settings → Environment Variables (already listed above), then redeploy.
-
-**Known limitation:** shared password for the whole team, not individual attorney accounts — good enough to stop random internet traffic and protect your API keys/corpus, not a real access-control system yet. If you need to know *which* attorney did *what* beyond what the audit trail already logs per case, that's a bigger upgrade (individual accounts) for later.
+**Note:** editing is currently open to all logged-in attorneys once a case is created; if you need to restrict who may *edit* (vs. own) a shared case, that's a small addition of a `contributors` column + policy later.
 
 ## Known limitations (unchanged or new)
 
-- Auth is now a shared team password, not individual attorney accounts or per-case ownership checks — good enough to keep the app off the open internet, not a full access-control system.
+- Individual attorney accounts via Supabase Auth + Google Workspace; per-case ownership enforced (only the creating attorney reads/edits/approves/downloads their cases). Corpus ingestion is gated behind login but not a separate admin role yet.
 - No real PDF/document upload — Intake still reads typed/pasted text, and so does the corpus ingestion page.
 - Drafting and Assembler remain mocked.
 - Fact-Consistency still checks Intake's raw output, not a real draft's claims, since Drafting isn't built.
@@ -98,4 +100,4 @@ Both go in Vercel → Project → Settings → Environment Variables (already li
 
 ## Next step
 
-With the app now behind a password, the next reasonable steps are: finish ingesting the 13 laws through `/admin/ingest-law`, and separately, start planning individual attorney accounts (rather than one shared password) once more than a couple of people are using this day to day.
+With login now on individual Google accounts, the next reasonable steps are: finish ingesting the 13 laws through `/admin/ingest-law`, decide whether corpus ingestion needs a dedicated admin role, and decide whether shared cases should support multiple *editing* attorneys (a small `contributors` addition).

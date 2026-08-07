@@ -8,6 +8,11 @@ create table if not exists cases (
   updated_at timestamptz default now(),
   pipeline_started_at timestamptz default now(), -- anchors the simulated timing for stages still mocked
 
+  -- Which attorney (Supabase Auth user) owns this case. Enforces per-case
+  -- authorization in the app: the owning user can read/edit/approve it, and
+  -- only they can download its report.
+  owner_id uuid references auth.users(id) on delete set null,
+
   status text default 'intake_pending',          -- intake_pending | needs_clarification | processing | ready_for_review | approved
 
   case_facts_raw text,                           -- the narrative text Intake read
@@ -34,7 +39,9 @@ create table if not exists audit_log (
   case_id text references cases(id) on delete cascade,
   ts timestamptz default now(),
   agent text,
-  action text
+  action text,
+  actor_id uuid,        -- which attorney (auth.users id) performed the action
+  actor_email text      -- their email, for the human-readable trail
 );
 
 create index if not exists audit_log_case_id_idx on audit_log(case_id);
@@ -74,9 +81,7 @@ create table if not exists legal_corpus (
 create index if not exists legal_corpus_embedding_idx
   on legal_corpus using ivfflat (embedding vector_cosine_ops) with (lists = 100);
 
-alter table legal_corpus enable row level security;
-drop policy if exists "no anon access" on legal_corpus;
-create policy "no anon access" on legal_corpus for all using (false);
+-- RLS for legal_corpus is declared at the bottom (admin-only).
 
 -- Vector similarity search, called via supabase.rpc() from the app —
 -- the JS client can't do vector math itself, so this Postgres function
@@ -115,9 +120,19 @@ $$;
 -- these policies exist to make sure nothing else can touch the data.
 alter table cases enable row level security;
 alter table audit_log enable row level security;
+alter table legal_corpus enable row level security;
 
-drop policy if exists "no anon access" on cases;
-create policy "no anon access" on cases for all using (false);
+drop policy if exists "own cases read" on cases;
+create policy "own cases read" on cases
+  for select using (auth.uid() = owner_id);
+
+drop policy if exists "own cases write" on cases;
+create policy "own cases write" on cases
+  for all using (auth.uid() = owner_id) with check (auth.uid() = owner_id);
+
+drop policy if exists "corpus admin only" on legal_corpus;
+create policy "corpus admin only" on legal_corpus
+  for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
 
 drop policy if exists "no anon access" on audit_log;
 create policy "no anon access" on audit_log for all using (false);

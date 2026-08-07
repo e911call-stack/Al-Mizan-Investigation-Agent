@@ -1,4 +1,5 @@
 import { getSupabase, logAudit } from '../../../../lib/supabase';
+import { getOptionalUser, actorFromUser } from '../../../../lib/supabase-server';
 import { callClaudeTool } from '../../../../lib/claude';
 
 const MAX_CASE_TEXT_CHARS = 20000;
@@ -62,6 +63,10 @@ export async function POST(request) {
   let body;
   try { body = await request.json(); } catch (e) { body = {}; }
 
+  const user = await getOptionalUser();
+  if (!user) return Response.json({ error: 'Unauthorized — please log in.' }, { status: 401 });
+  const actor = actorFromUser(user);
+
   const caseText = (body.caseFacts || '').trim();
   if (!caseText) {
     return Response.json({ error: 'caseFacts is required.' }, { status: 400 });
@@ -99,6 +104,7 @@ export async function POST(request) {
 
   const { error: insertError } = await supabase.from('cases').insert({
     id: caseId,
+    owner_id: user.id,
     status,
     case_facts_raw: caseText,
     jurisdiction_signal: extracted.jurisdictionSignal || null,
@@ -113,8 +119,8 @@ export async function POST(request) {
   }
 
   await logAudit(supabase, caseId, 'Intake', extracted.status === 'ok'
-    ? 'Extracted parties, claim, and dates with source anchors.'
-    : 'Flagged ambiguities — awaiting clarification.');
+    ? 'Extracted parties, claim, and dates with source anchors. Case created.'
+    : 'Flagged ambiguities — awaiting clarification.', actor);
 
   return Response.json({ caseId, status: extracted.status, extracted, truncated });
 }

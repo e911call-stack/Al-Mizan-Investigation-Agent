@@ -1,22 +1,46 @@
 import { NextResponse } from 'next/server';
-import { verifySession } from './lib/auth';
+import { createServerClient } from '@supabase/ssr';
+import { supabaseUrl, supabaseAnonKey } from './lib/supabase-config';
 
 export const config = {
   matcher: ['/investigate/:path*', '/admin/:path*', '/api/case/:path*', '/api/corpus/:path*']
 };
 
+// Session gate: every matched route requires a valid Supabase Auth session.
+// /api/auth/* and /auth/* are intentionally NOT matched so the OAuth handshake
+// can complete before a session exists.
 export async function middleware(request) {
-  const token = request.cookies.get('session')?.value;
-  const secret = process.env.SESSION_SECRET;
-
-  const valid = Boolean(secret) && (await verifySession(token, secret));
-  if (valid) return NextResponse.next();
-
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    return NextResponse.json({ error: 'Unauthorized — please log in.' }, { status: 401 });
+  if (!supabaseUrl() || !supabaseAnonKey()) {
+    if (request.nextUrl.pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Auth is not configured on the server. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.' }, { status: 500 });
+    }
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  const loginUrl = new URL('/login', request.url);
-  loginUrl.searchParams.set('next', request.nextUrl.pathname);
-  return NextResponse.redirect(loginUrl);
+  let response = NextResponse.next({ request: { headers: request.headers } });
+
+  const supabase = createServerClient(supabaseUrl(), supabaseAnonKey(), {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      }
+    }
+  });
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    if (request.nextUrl.pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized — please log in.' }, { status: 401 });
+    }
+
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return response;
 }

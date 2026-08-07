@@ -1,4 +1,5 @@
 import { getSupabase } from '../../../../lib/supabase';
+import { getOptionalUser } from '../../../../lib/supabase-server';
 
 const STAGE_NAMES = ['Intake', 'Research', 'Court-Routing', 'Drafting', 'Citation Verification', 'Fact-Consistency', 'Assembler', 'Attorney Review Gate'];
 const MOCK_STAGE_MS = 1800; // pacing for the two stages that are still simulated (Drafting, Assembler)
@@ -6,11 +7,19 @@ const MOCK_STAGE_MS = 1800; // pacing for the two stages that are still simulate
 export async function GET(request, { params }) {
   const caseId = params.id;
 
+  const user = await getOptionalUser();
+  if (!user) return Response.json({ error: 'Unauthorized — please log in.' }, { status: 401 });
+
   let supabase;
   try { supabase = getSupabase(); } catch (e) { return Response.json({ error: e.message }, { status: 500 }); }
 
   const { data: caseRow, error } = await supabase.from('cases').select('*').eq('id', caseId).single();
   if (error || !caseRow) return Response.json({ error: 'Case not found.' }, { status: 404 });
+
+  // Per-case authorization: only the owning attorney may view a case.
+  if (caseRow.owner_id && caseRow.owner_id !== user.id) {
+    return Response.json({ error: 'Forbidden — you do not own this case.' }, { status: 403 });
+  }
 
   const { data: auditRows } = await supabase.from('audit_log').select('*').eq('case_id', caseId).order('ts', { ascending: true });
 
