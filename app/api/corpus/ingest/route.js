@@ -2,6 +2,7 @@ import { getSupabase } from '../../../../lib/supabase';
 import { getOptionalUser, actorFromUser } from '../../../../lib/supabase-server';
 import { splitLawIntoArticles } from '../../../../lib/corpus-ingest';
 import { embedText } from '../../../../lib/embeddings';
+import { syncArticleToLKC } from '../../../../lib/lkc-sync';
 
 // A law with 100+ articles means 100+ sequential embedding calls — this
 // can run long. Same Vercel-plan caveat as the PDF report route: this
@@ -65,11 +66,29 @@ export async function POST(request) {
       embedding
     });
 
+    // Mirror this article into the shared Legal Knowledge Core tables so
+    // WakeelyPro/Mokhamen can read it too. Best-effort — never affects the
+    // legal_corpus result above, which is what this app's own Research
+    // agent depends on.
+    let lkc = { synced: false, reason: 'skipped (legal_corpus insert failed)' };
+    if (!insertError) {
+      lkc = await syncArticleToLKC(supabase, {
+        sourceJurisdiction: jurisdiction,
+        lawNameAr: lawNameAr || 'Unnamed law',
+        articleNumber: article.articleNumber,
+        textAr: article.textAr,
+        embedding,
+        sourceNote,
+      });
+    }
+
     results.push({
       articleNumber: article.articleNumber,
       status: insertError ? 'insert_failed' : 'ok',
       error: insertError ? insertError.message : undefined,
-      extractionFlag: article.extractionFlag || undefined
+      extractionFlag: article.extractionFlag || undefined,
+      lkcSynced: lkc.synced,
+      lkcReason: lkc.synced ? undefined : lkc.reason
     });
   }
 

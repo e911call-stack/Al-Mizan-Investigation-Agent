@@ -90,6 +90,9 @@ export default function IngestLawPage() {
             {result.results.map((r, i) => (
               <li key={i} style={{ color: r.status === 'ok' ? '#3F6E52' : '#9C4B3B' }}>
                 Art. {r.articleNumber}: {r.status}{r.extractionFlag ? ` — flagged: ${r.extractionFlag}` : ''}{r.error ? ` — ${r.error}` : ''}
+                {' '}<span style={{ color: r.lkcSynced ? '#3F6E52' : '#B08A3E' }}>
+                  {r.lkcSynced ? '· synced to Legal Knowledge Core' : r.lkcReason ? `· LKC: ${r.lkcReason}` : ''}
+                </span>
               </li>
             ))}
           </ul>
