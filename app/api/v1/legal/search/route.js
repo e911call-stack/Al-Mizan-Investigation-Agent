@@ -22,9 +22,11 @@ export async function POST(request) {
   let supabase;
   try { supabase = getSupabase(); } catch (e) { return Response.json({ error: e.message }, { status: 500 }); }
 
-  const app = await verifyApiKey(supabase, request);
+  const { app, debug } = await verifyApiKey(supabase, request);
   if (!app) {
-    return Response.json({ error: 'Invalid or missing API key.' }, { status: 401 });
+    // TEMPORARY: includes a debug hint while we're setting this up.
+    // Remove the debug field once keys are confirmed working end to end.
+    return Response.json({ error: 'Invalid or missing API key.', debug }, { status: 401 });
   }
   if (!canAccessJurisdiction(app, jurisdiction)) {
     return Response.json({ error: `"${app.name}" is not authorized for jurisdiction "${jurisdiction}".` }, { status: 403 });

@@ -30,7 +30,7 @@ export default function LkcTestPage() {
         body: JSON.stringify({ jurisdiction, query, current_only: currentOnly })
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Search failed.'); return; }
+      if (!res.ok) { setError((data.error || 'Search failed.') + (data.debug ? ` (${data.debug})` : '')); return; }
       setResult(data);
     } catch (e) {
       setError('Could not reach the server.');
