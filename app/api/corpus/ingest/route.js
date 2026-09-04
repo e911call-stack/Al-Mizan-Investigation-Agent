@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { getSupabase } from '../../../../lib/supabase';
 import { splitLawIntoArticles } from '../../../../lib/corpus-ingest';
 import { embedText } from '../../../../lib/embeddings';
@@ -8,6 +9,16 @@ import { syncArticleToLKC } from '../../../../lib/lkc-sync';
 // only takes effect on Pro; Hobby stays capped at 10s regardless.
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
+
+// Constant-time comparison so a mistyped/attempted password can't be
+// guessed faster by measuring response time differences.
+function passwordMatches(provided, expected) {
+  if (!provided || !expected) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 // POST /api/corpus/ingest
 // Headers: x-admin-password: <the shared password set in ADMIN_PASSWORD>
@@ -28,7 +39,7 @@ export async function POST(request) {
   if (!process.env.ADMIN_PASSWORD) {
     return Response.json({ error: 'ADMIN_PASSWORD is not set on the server.' }, { status: 500 });
   }
-  if (providedPassword !== process.env.ADMIN_PASSWORD) {
+  if (!passwordMatches(providedPassword, process.env.ADMIN_PASSWORD)) {
     return Response.json({ error: 'Wrong password.' }, { status: 401 });
   }
 
