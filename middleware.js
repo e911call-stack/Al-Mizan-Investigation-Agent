@@ -3,12 +3,16 @@ import { createServerClient } from '@supabase/ssr';
 import { supabaseUrl, supabaseAnonKey } from './lib/supabase-config';
 
 export const config = {
-  matcher: ['/investigate/:path*', '/admin/:path*', '/api/case/:path*', '/api/corpus/:path*']
+  matcher: ['/investigate/:path*', '/api/case/:path*']
 };
 
 // Session gate: every matched route requires a valid Supabase Auth session.
-// /api/auth/* and /auth/* are intentionally NOT matched so the OAuth handshake
-// can complete before a session exists.
+// /admin/ingest-law and /api/corpus/ingest are deliberately NOT matched here —
+// they use a simple shared password instead (see the password field on that
+// page / the x-admin-password header check in that route), since Google
+// OAuth setup is being deferred for now. /api/auth/* and /auth/* are also
+// intentionally not matched so the OAuth handshake can complete before a
+// session exists.
 export async function middleware(request) {
   if (!supabaseUrl() || !supabaseAnonKey()) {
     if (request.nextUrl.pathname.startsWith('/api/')) {

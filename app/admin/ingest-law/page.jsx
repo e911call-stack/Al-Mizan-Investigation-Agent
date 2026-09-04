@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
 
-// Protected by the app-wide password gate (see middleware.js) — not a
-// per-user permission system yet, but no longer wide open.
+// Protected by a simple shared password (sent as x-admin-password), checked
+// in app/api/corpus/ingest/route.js. Google OAuth login is deferred for now
+// — this keeps the ingestion tool usable without it.
 export default function IngestLawPage() {
+  const [adminPassword, setAdminPassword] = useState('');
   const [jurisdiction, setJurisdiction] = useState('jordan-civil');
   const [lawNameAr, setLawNameAr] = useState('');
   const [lawNameEn, setLawNameEn] = useState('');
@@ -16,6 +18,10 @@ export default function IngestLawPage() {
   async function submit() {
     setError(null);
     setResult(null);
+    if (!adminPassword.trim()) {
+      setError('Enter the admin password first.');
+      return;
+    }
     if (!rawText.trim() || !lawNameAr.trim()) {
       setError('Law name and pasted text are both required.');
       return;
@@ -24,7 +30,7 @@ export default function IngestLawPage() {
     try {
       const res = await fetch('/api/corpus/ingest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
         body: JSON.stringify({ jurisdiction, lawNameAr, lawNameEn, sourceNote, rawText })
       });
       const data = await res.json();
@@ -39,11 +45,11 @@ export default function IngestLawPage() {
 
   return (
     <main style={{ maxWidth: 760, margin: '0 auto', padding: '40px 24px', fontFamily: 'sans-serif' }}>
-      <h1 style={{ fontSize: 22 }}>Ingest a law into the corpus</h1>
+      <h1 style={{ fontSize: 22 }}>Ingest a law into the Legal Knowledge Core</h1>
       <p style={{ color: '#666', fontSize: 13.5, lineHeight: 1.6 }}>
         Paste raw law text below. Claude splits it into individual articles, strips any
-        non-statutory commentary, and every article is stored at the <code>extracted-unverified</code> tier —
-        nothing here is promoted to <code>corpus-verified</code> automatically.
+        non-statutory commentary, and every article is stored as <code>extracted-unverified</code> —
+        nothing here is promoted to verified automatically.
         <br /><br />
         <strong>For long laws (100+ articles):</strong> paste in chapter-sized chunks using the same
         law name each time, rather than the whole law at once — a single call has execution-time and
@@ -51,6 +57,10 @@ export default function IngestLawPage() {
       </p>
 
       <div style={{ display: 'grid', gap: 14, marginTop: 24 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 12.5, marginBottom: 4 }}>Admin password</label>
+          <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} style={{ width: '100%', padding: 8 }} />
+        </div>
         <div>
           <label style={{ display: 'block', fontSize: 12.5, marginBottom: 4 }}>Jurisdiction</label>
           <select value={jurisdiction} onChange={e => setJurisdiction(e.target.value)} style={{ width: '100%', padding: 8 }}>
@@ -85,14 +95,11 @@ export default function IngestLawPage() {
 
       {result && (
         <div style={{ marginTop: 24, padding: 16, background: '#F8F6F0', border: '1px solid #DCD7C9', borderRadius: 6 }}>
-          <p><strong>{result.articlesFound}</strong> articles found, <strong>{result.strippedCommentaryCount}</strong> commentary blocks stripped.</p>
+          <p><strong>{result.okCount}</strong> of <strong>{result.articlesFound}</strong> articles stored, <strong>{result.strippedCommentaryCount}</strong> commentary blocks stripped.</p>
           <ul style={{ fontSize: 12.5, maxHeight: 300, overflow: 'auto' }}>
             {result.results.map((r, i) => (
               <li key={i} style={{ color: r.status === 'ok' ? '#3F6E52' : '#9C4B3B' }}>
                 Art. {r.articleNumber}: {r.status}{r.extractionFlag ? ` — flagged: ${r.extractionFlag}` : ''}{r.error ? ` — ${r.error}` : ''}
-                {' '}<span style={{ color: r.lkcSynced ? '#3F6E52' : '#B08A3E' }}>
-                  {r.lkcSynced ? '· synced to Legal Knowledge Core' : r.lkcReason ? `· LKC: ${r.lkcReason}` : ''}
-                </span>
               </li>
             ))}
           </ul>
@@ -101,3 +108,4 @@ export default function IngestLawPage() {
     </main>
   );
 }
+
