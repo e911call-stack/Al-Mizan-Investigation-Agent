@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'crypto';
 import { getSupabase } from '../../../../lib/supabase';
 import { embedText } from '../../../../lib/embeddings';
-import { embedAndCiteProvision } from '../../../../lib/lkc-sync';
+import { embedAndCiteProvision, jurisdictionCodeFor } from '../../../../lib/lkc-sync';
 
 // The only route that calls Voyage. Kept separate from splitting on purpose
 // (see app/api/corpus/split) so Gemini's call count no longer depends on
@@ -55,12 +55,16 @@ export async function POST(request) {
   if (!jurisdiction) {
     return Response.json({ error: 'jurisdiction is required.' }, { status: 400 });
   }
+  // Accept either the app-level value ("jordan-civil") or the LKC code
+  // ("JO") directly — split and embed-pending should never disagree about
+  // this again.
+  const jurisdictionCode = jurisdictionCodeFor(jurisdiction) || jurisdiction;
 
   let supabase;
   try { supabase = getSupabase(); } catch (e) { return Response.json({ error: e.message }, { status: 500 }); }
 
   const { data: pending, error: pendErr } = await supabase.rpc('lkc_pending_provisions', {
-    p_jurisdiction: jurisdiction,
+    p_jurisdiction: jurisdictionCode,
     batch_size: batchSize,
   });
   if (pendErr) return Response.json({ error: 'Lookup failed: ' + pendErr.message }, { status: 500 });
@@ -87,7 +91,7 @@ export async function POST(request) {
   }
 
   const { data: remainingCount, error: countErr } = await supabase.rpc('lkc_pending_count', {
-    p_jurisdiction: jurisdiction,
+    p_jurisdiction: jurisdictionCode,
   });
 
   return Response.json({
