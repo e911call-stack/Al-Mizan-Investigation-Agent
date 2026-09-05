@@ -18,5 +18,9 @@ function describe(value) {
 }
 
 export async function GET() {
-  return Response.json({ ADMIN_PASSWORD: describe(process.env.ADMIN_PASSWORD) });
+  return Response.json({
+    ADMIN_PASSWORD: describe(process.env.ADMIN_PASSWORD),
+    LLM_PROVIDER_raw: process.env.LLM_PROVIDER === undefined ? null : JSON.stringify(process.env.LLM_PROVIDER),
+    GEMINI_API_KEY: describe(process.env.GEMINI_API_KEY),
+  });
 }
